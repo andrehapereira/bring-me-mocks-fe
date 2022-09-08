@@ -1,0 +1,145 @@
+<div class="dialog">
+    <div class="dialog-header">
+        <h1>Manage endpoint</h1>
+    </div>
+    <div class="dialog-body">
+        <div [formGroup]="form">
+            <div>
+                <mat-form-field appearance="standard">
+                    <mat-label>Service Name</mat-label>
+                    <input matInput placeholder="Enter service name" formControlName="serviceName">
+                    <mat-error *ngIf="invalidCtrl(form.get('serviceName'))">
+                        Field required.
+                    </mat-error>
+                </mat-form-field>
+                <mat-form-field appearance="standard" class="ms-5">
+                    <mat-label>Status to return</mat-label>
+                    <mat-select formControlName="statusToReturn">
+                      <mat-option *ngFor="let status of getAvailableStatus()" [value]="status">{{status}}</mat-option>
+                    </mat-select>
+                    <mat-error *ngIf="invalidCtrl(form.get('statusToReturn'))">
+                        Field required.
+                    </mat-error>
+                  </mat-form-field>
+                <mat-form-field appearance="standard" class="ms-5">
+                    <mat-label>METHOD</mat-label>
+                    <mat-select formControlName="method">
+                      <mat-option *ngFor="let method of getMethods()" [value]="method">{{method}}</mat-option>
+                    </mat-select>
+                    <mat-error *ngIf="invalidCtrl(form.get('method'))">
+                        Field required.
+                    </mat-error>
+                  </mat-form-field>
+            </div>
+            <div>
+                <mat-form-field appearance="standard" class="w-100">
+                    <mat-label>Url Pattern</mat-label>
+                    <input matInput placeholder="Enter Url Pattern" formControlName="urlPattern">
+                    <mat-error *ngIf="invalidCtrl(form.get('urlPattern'))">
+                        Field required.
+                    </mat-error>
+                </mat-form-field>
+            </div>
+
+            <div>
+                <table mat-table [dataSource]="dataSource" class="w-100 mb-5">
+                    <ng-container *ngFor="let column of headerTable; let isFirst = first" [matColumnDef]="column.columnDef">
+                        
+                        <!-- HEADER -->
+                      <th mat-header-cell *matHeaderCellDef>
+                        {{column.header}}
+                      </th>
+
+                      <!-- ROW -->
+                      <td mat-cell *matCellDef="let row; let i = index">
+                        <mat-form-field appearance="standard" *ngIf="column.columnDef !== 'delete'">
+                            <input matInput placeholder="Enter {{column.header}}" [formControl]="column.control(row)">
+                            <mat-error *ngIf="column.control(row)">
+                                Field required.
+                            </mat-error>
+                        </mat-form-field>
+                        <div *ngIf="column.columnDef === 'delete'" class="text-danger ms-auto d-flex align-items-center pointer" (click)="onDeleteHeader(i); $event.stopPropagation()">
+                            <mat-icon>delete</mat-icon>
+                        </div>
+                      </td>
+
+                      <!-- FOOTER -->
+                      <td mat-footer-cell *matFooterCellDef>
+                        <button mat-button color="primary" *ngIf="isFirst" (click)="onAddHeader()">
+                            <div class="d-flex align-items-center">
+                                <mat-icon>add</mat-icon>
+                                <span>Add header</span> 
+                            </div>
+                        </button>
+                      </td>
+                    </ng-container>
+                  
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+                    <tr mat-footer-row *matFooterRowDef="displayedColumns"></tr>
+                  </table>
+                  
+            </div>
+
+            <div class="mb-4">
+                <mat-accordion>
+                    <mat-expansion-panel (opened)="connectorPanelOpen = true"
+                                         (closed)="connectorPanelOpen = false">
+                      <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            Connect to another service (optional)
+                        </mat-panel-title>
+                        <mat-panel-description *ngIf="hasConnector()">
+                          {{connectorActionLabel()}} {{connectorUrlPattern() | async}} <span *ngIf="connectorRequiresProperty()">&nbsp;by "{{form.get('connector.by')?.value || 'id'}}"</span>
+                        </mat-panel-description>
+                      </mat-expansion-panel-header>
+                      
+                      <div class="d-flex w-100 align-items-center" [formGroup]="form.get('connector')">
+                            <div class="d-flex flex-wrap w-100">
+                                <mat-form-field appearance="standard" class="w-25 pe-3">
+                                    <mat-label>Action</mat-label>
+                                    <mat-select formControlName="action">
+                                        <mat-option *ngFor="let item of connectorActions" [value]="item.action">{{item.label}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field appearance="standard" class="w-75 ">
+                                    <mat-label>Target</mat-label>
+                                    <mat-select formControlName="target">
+                                        <mat-option *ngFor="let endpoint of endpoints$ | async" [value]="endpoint.id">
+                                            <div class="badge {{btnClass(endpoint.method)}} me-3 px-2 py-1">
+                                                <small>{{endpoint.method}}</small>
+                                            </div>
+                                            {{endpoint.urlPattern}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field appearance="standard" class="w-50" *ngIf="connectorRequiresProperty()">
+                                    <mat-label>By (defaults to 'id')</mat-label>
+                                    <input matInput formControlName="by">
+                                </mat-form-field>
+                                <div class="w-100 d-flex align-self-center justify-self-end">
+                                    <button mat-button color="primary" class="ms-auto" (click)="form.get('connector')?.reset(); form.markAsDirty()"><mat-icon>refresh</mat-icon><span>Reset</span></button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </mat-expansion-panel>
+                  </mat-accordion>
+
+            </div>
+
+            <div class="responses">
+                <mat-tab-group (selectedTabChange)="onTabChange($event)">
+                    <mat-tab #tab *ngFor="let status of getAvailableStatus()" [label]="status">
+                    </mat-tab>
+                </mat-tab-group>              
+                <json-editor [options]="jsonEditorOpts" [formControl]="activeJSONCtrl$ | async"></json-editor>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="mt-5 d-flex justify-content-end dialog-footer">
+        <button mat-button (click)="onClose()" class="me-3">Cancel</button>
+        <button mat-raised-button color="primary" (click)="onSave()" [disabled]="form.pristine || (loading$ | async)">Save</button>
+    </div>
+</div>
